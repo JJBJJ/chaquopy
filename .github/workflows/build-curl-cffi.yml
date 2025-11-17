@@ -1,4 +1,4 @@
-name: 构建 curl-cffi (Python 3.8 arm64-v8a)
+name: 构建 curl-cffi Android 包
 
 on:
   workflow_dispatch:  # 允许手动触发
@@ -20,52 +20,30 @@ jobs:
       with:
         python-version: '3.8.18'
 
-    - name: 📦 安装系统依赖
+    - name: 📦 安装必需系统工具
       run: |
-        echo "开始安装系统依赖..."
+        echo "🔧 安装文档要求的系统工具..."
         sudo apt-get update
-        sudo apt-get install -y \
-          patch \
-          patchelf \
-          wget \
-          unzip \
-          pkg-config \
-          libssl-dev \
-          autoconf \
-          automake \
-          libtool
-        echo "✅ 系统依赖安装完成"
-
-    - name: 🤖 设置 Android SDK
-      run: |
-        echo "正在设置 Android SDK..."
-        mkdir -p android-sdk/cmdline-tools/latest
-        cd android-sdk/cmdline-tools/latest
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-        unzip -q commandlinetools-linux-9477386_latest.zip
-        cd ../../..
-        echo "ANDROID_HOME=$PWD/android-sdk" >> $GITHUB_ENV
-        echo "✅ Android SDK 设置完成"
+        sudo apt-get install -y patch patchelf
+        echo "✅ 系统工具安装完成"
 
     - name: ⬇️ 下载 Python 3.8.20-1 目标文件
       run: |
-        echo "正在下载 Python 3.8.20-1 目标文件..."
+        echo "📥 下载 Android Python 3.8.20-1 目标文件..."
         cd server/pypi
-        # 使用图片中可用的最新版本 3.8.20-1
         ../../target/download-target.sh maven/com/chaquo/python/target/3.8.20-1
-        echo "✅ Python 3.8.20-1 目标文件下载完成"
+        echo "✅ Python 目标文件下载完成"
 
     - name: 📚 安装 Python 构建依赖
       run: |
-        echo "正在安装 Python 构建依赖..."
+        echo "📖 安装 Python 构建依赖..."
         cd server/pypi
         pip install -r requirements.txt
-        pip install cffi setuptools wheel
         echo "✅ Python 依赖安装完成"
 
     - name: 📝 创建 curl-cffi 构建配方
       run: |
-        echo "创建 curl-cffi 构建配方..."
+        echo "📋 创建 curl-cffi 构建配方..."
         cd server/pypi/packages
         
         # 创建 curl-cffi 配方目录
@@ -105,61 +83,47 @@ jobs:
             - curl_cffi
         EOF
         
-        # 创建构建脚本
-        cat > curl-cffi/build.sh << 'EOF'
-        #!/bin/bash
-        echo "开始构建 curl-cffi..."
-        
-        # 设置编译环境
-        export CFLAGS="$CFLAGS -I$PREFIX/include"
-        export LDFLAGS="$LDFLAGS -L$PREFIX/lib"
-        
-        # 安装构建依赖
-        $PYTHON -m pip install cffi pycparser
-        
-        # 构建包
-        $PYTHON -m pip install . --no-deps --no-build-isolation
-        
-        echo "✅ curl-cffi 构建完成"
-        EOF
-        
-        chmod +x curl-cffi/build.sh
         echo "✅ curl-cffi 构建配方创建完成"
 
-    - name: 🔨 构建 arm64-v8a Wheel 包
+    - name: 🔨 构建 arm64-v8a 架构包
       run: |
-        echo "开始构建 arm64-v8a 架构的 curl-cffi..."
+        echo "🏗️ 开始构建 arm64-v8a 架构..."
         cd server/pypi
         ./build-wheel.py --python 3.8 --abi arm64-v8a packages/curl-cffi/
         echo "✅ arm64-v8a 构建完成"
 
-    - name: 🔨 构建 armeabi-v7a Wheel 包
+    - name: 🔨 构建 armeabi-v7a 架构包
       run: |
-        echo "开始构建 armeabi-v7a 架构的 curl-cffi..."
+        echo "🏗️ 开始构建 armeabi-v7a 架构..."
         cd server/pypi
         ./build-wheel.py --python 3.8 --abi armeabi-v7a packages/curl-cffi/
         echo "✅ armeabi-v7a 构建完成"
 
     - name: 📊 检查构建产物
       run: |
+        echo "📦 检查生成的包文件..."
         echo "构建产物列表："
         ls -la server/pypi/dist/
         echo "生成的 .whl 文件："
-        find server/pypi/dist -name "*.whl" -exec echo "📦 {}" \;
+        find server/pypi/dist -name "*.whl" | while read file; do
+          echo "🎯 找到: $file"
+        done
 
     - name: ⬆️ 上传构建产物
       uses: actions/upload-artifact@v4
       with:
-        name: curl-cffi-python3.8-wheels
+        name: curl-cffi-android-wheels
         path: server/pypi/dist/
         retention-days: 30
 
     - name: ✅ 构建完成报告
       run: |
         echo "🎉 构建任务完成！"
-        echo "📋 构建详情："
+        echo "📊 构建详情："
         echo "   🐍 Python 版本: 3.8.20-1"
-        echo "   📱 目标架构: arm64-v8a, armeabi-v7a"
-        echo "   📦 包名称: curl-cffi"
+        echo "   📱 目标架构: arm64-v8a, armeabi-v7a" 
+        echo "   📦 包名称: curl-cffi 0.5.0"
         echo "   ⏰ 完成时间: $(date)"
         echo "   📁 产物位置: server/pypi/dist/"
+        echo ""
+        echo "🔍 下一步：将生成的 .whl 文件用于您的 Android 项目"
