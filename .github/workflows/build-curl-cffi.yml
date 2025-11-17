@@ -6,7 +6,7 @@ on:
     branches: [ main ]
 
 jobs:
-  构建安卓包:
+  build_android:
     runs-on: ubuntu-latest
     
     steps:
